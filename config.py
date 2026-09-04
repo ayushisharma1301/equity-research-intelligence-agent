@@ -13,6 +13,6 @@ def get_config():
 
     return {
         "GEMINI_API_KEY": secret("GEMINI_API_KEY"),
-        "GEMINI_MODEL": secret("GEMINI_MODEL", "gemini-2.5-flash-lite"),
+        "GEMINI_MODEL": secret("GEMINI_MODEL", "gemini-3.5-flash-lite"),
         "TAVILY_API_KEY": secret("TAVILY_API_KEY"),
     }

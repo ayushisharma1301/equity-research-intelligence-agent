@@ -56,6 +56,18 @@ def pct(x):
         return "—"
 
 
+def as_dict(value):
+    return value if isinstance(value, dict) else {}
+
+
+def as_list(value):
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return []
+
+
 def sources_block(sources, limit=30):
     if not sources:
         st.markdown('<div class="small">No source list returned.</div>', unsafe_allow_html=True)
@@ -98,6 +110,10 @@ def run_research(query, exchange):
         synthesis = SynthesisAgent(gemini).run(f"{company} ({exchange}:{symbol})", financial, industry)
         status.update(label="Live research complete", state="complete", expanded=False)
 
+    identity = as_dict(identity)
+    financial = as_dict(financial)
+    industry = as_dict(industry)
+    synthesis = as_dict(synthesis)
     identity["sector"] = identity.get("sector") or financial.get("sector") or ""
     identity["industry"] = identity.get("industry") or financial.get("industry") or industry.get("industry") or ""
     st.session_state.identity = identity
@@ -130,7 +146,7 @@ with st.sidebar:
         st.rerun()
     st.markdown("---")
     st.markdown("**Required Streamlit Secrets**")
-    st.code('GEMINI_API_KEY = "..."\nTAVILY_API_KEY = "..."\nGEMINI_MODEL = "gemini-2.5-flash-lite"', language="toml")
+    st.code('GEMINI_API_KEY = "..."\nTAVILY_API_KEY = "..."\nGEMINI_MODEL = "gemini-3.5-flash-lite"', language="toml")
     st.caption("Live web retrieval: Tavily. AI analysis: Gemini. No company universe is stored in the app.")
 
 identity = st.session_state.get("identity")
@@ -149,10 +165,10 @@ ex = identity.get("exchange") or st.session_state.get("exchange", "—")
 name = identity.get("company_name") or financial.get("company") or "—"
 sector = identity.get("sector") or ""
 ind = identity.get("industry") or industry.get("industry") or ""
-ms = financial.get("market_snapshot") or {}
-latest = financial.get("latest") or {}
-periods = financial.get("periods") or []
-fh = financial.get("financial_health") or {}
+ms = as_dict(financial.get("market_snapshot"))
+latest = as_dict(financial.get("latest"))
+periods = as_list(financial.get("periods"))
+fh = as_dict(financial.get("financial_health"))
 
 change = ms.get("daily_change_pct")
 change_class = "up" if isinstance(change, (int, float)) and change >= 0 else "down"
@@ -163,12 +179,14 @@ st.markdown(f'<div class="panel"><div class="identity"><div><div class="identity
 
 # Analyst action center
 st.markdown('<div class="section"><h2>ANALYST ACTION CENTER</h2><p>What deserves the analyst\'s time after the agents have researched the company and its surrounding industry?</p></div>', unsafe_allow_html=True)
-actions = synthesis.get("actions") or []
-counts = {p: sum(1 for a in actions if str(a.get("priority", "")).upper() == p) for p in ["READ NOW", "REVIEW", "MONITOR", "IGNORE"]}
+actions = as_list(synthesis.get("actions"))
+counts = {p: sum(1 for a in actions if isinstance(a, dict) and str(a.get("priority", "")).upper() == p) for p in ["READ NOW", "REVIEW", "MONITOR", "IGNORE"]}
 cols = st.columns(4)
 for c, p in zip(cols, ["READ NOW", "REVIEW", "MONITOR", "IGNORE"]):
     c.metric(p, counts[p])
 for a in actions:
+    if not isinstance(a, dict):
+        continue
     p = str(a.get("priority", "MONITOR")).upper()
     cls = p.lower().replace(" ", "")
     st.markdown(f'<div class="action {cls}"><div class="action-top"><span class="priority">{esc(p)} · {esc(symbol)}</span><span class="confidence">CONF {esc(a.get("confidence",0))}/100</span></div><div class="action-title">{esc(a.get("title","Untitled"))}</div><div class="action-body"><b>Evidence:</b> {esc(a.get("evidence","—"))}<br><b>Why it matters:</b> {esc(a.get("why_it_matters","—"))}<br><b>Next:</b> {esc(a.get("analyst_question","—"))}</div></div>', unsafe_allow_html=True)
@@ -211,13 +229,19 @@ with c2:
         st.markdown(f"• {esc(d)}")
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('<div class="panel"><div class="panel-head">Capital allocation & strategic decisions</div>', unsafe_allow_html=True)
-    for x in (financial.get("capital_allocation") or [])[:8]:
-        st.markdown(f'**{esc(x.get("type","Decision"))}** — {esc(x.get("description", x.get("decision","—")))}')
+    for x in as_list(financial.get("capital_allocation"))[:8]:
+        if isinstance(x, dict):
+            st.markdown(f'**{esc(x.get("type","Decision"))}** — {esc(x.get("description", x.get("decision","—")))}')
+        else:
+            st.markdown(f"• {esc(x)}")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with st.expander("Financial movement interpretation"):
-    for m in (financial.get("movements") or [])[:12]:
-        st.markdown(f'**{esc(m.get("metric", m.get("title","Movement")))}** · {esc(m.get("movement",""))}  \n{esc(m.get("why_it_matters", m.get("explanation","")))}')
+    for m in as_list(financial.get("movements"))[:12]:
+        if isinstance(m, dict):
+            st.markdown(f'**{esc(m.get("metric", m.get("title","Movement")))}** · {esc(m.get("movement",""))}  \n{esc(m.get("why_it_matters", m.get("explanation","")))}')
+        else:
+            st.markdown(f"• {esc(m)}")
 
 with st.expander("Management commentary"):
     mc = financial.get("management_commentary") or []

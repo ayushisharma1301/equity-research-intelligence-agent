@@ -11,7 +11,7 @@ In Streamlit Community Cloud, open the app settings and add:
 ```toml
 GEMINI_API_KEY = "..."
 TAVILY_API_KEY = "..."
-GEMINI_MODEL = "gemini-2.5-flash-lite"
+GEMINI_MODEL = "gemini-3.5-flash-lite"
 ```
 
 ## 3. GitHub root
