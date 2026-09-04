@@ -1,22 +1,5 @@
-# UI reference translation
+# UI Reference
 
-The dashboard styling is intentionally inspired by the supplied VANTAGE HTML reference, but the product is redesigned around equity research.
+The visual language follows the supplied VANTAGE HTML reference: dark graphite background, orange analytical accent, Fraunces-style editorial headings, IBM Plex Sans/Mono analytical labels, compact ticker, bordered cards, dense information hierarchy and source visibility.
 
-Preserved design language:
-- near-black background with subtle radial glow
-- warm orange analytical accent
-- serif display headings + IBM Plex-style body/mono hierarchy
-- compact live ticker
-- bordered analytical cards
-- status/action colors for READ NOW / REVIEW / MONITOR / IGNORE
-- tabbed research views
-- dense but restrained spacing
-- source/evidence visibility
-
-Changed for this product:
-- VANTAGE project-finance issues are removed.
-- Equity financial KPIs replace project-finance metrics.
-- Historical statement charts replace scenario quadrants.
-- Industry Monitor replaces sector-specific VUCA/project tabs.
-- Analyst Action Center becomes the home screen.
-- Gemini is the intelligence engine instead of the reference HTML's browser-side AI call.
+The functionality is rebuilt for equity research: dynamic NSE/BSE company selection, live research execution, financial movement tracking, industry/news intelligence and analyst prioritization.
