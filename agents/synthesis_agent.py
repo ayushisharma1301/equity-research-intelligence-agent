@@ -1,42 +1,35 @@
 from __future__ import annotations
 import json
-from typing import Dict, Any
+from typing import Any, Dict
 from llm.gemini_client import GeminiResearchClient
 
-SYNTHESIS_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "daily_read": {"type": "string"},
-        "actions": {"type": "array", "items": {"type": "object", "additionalProperties": True}},
-        "top_three": {"type": "array", "items": {"type": "string"}},
-        "watch_next": {"type": "array", "items": {"type": "string"}},
-    },
-    "required": ["daily_read", "actions", "top_three", "watch_next"],
-}
+SCHEMA = {"type":"object","properties":{
+    "verdict":{"type":"string"},"confidence":{"type":"integer"},"executive_summary":{"type":"string"},
+    "actions":{"type":"array","items":{"type":"object","additionalProperties":True}},
+    "top_three":{"type":"array","items":{"type":"string"}},"watch_next":{"type":"array","items":{"type":"string"}}
+},"required":["verdict","confidence","executive_summary","actions","top_three","watch_next"]}
 
 PROMPT = """
-You are the senior research triage layer of an equity-research intelligence system. Convert the financial and industry research below into a concise analyst work queue.
+You are the SENIOR EQUITY-RESEARCH SYNTHESIS AGENT.
+Target: {ticker}
 
-FINANCIAL RESEARCH:
+Below are two fresh research packs produced from web-grounded research.
+FINANCIAL PACK:
 {financial}
-
-INDUSTRY RESEARCH:
+INDUSTRY PACK:
 {industry}
 
-Create:
-- daily_read: 2-4 sentences describing the most important cross-company/sector change.
-- actions: rank up to 8 items. Each must contain priority (READ NOW/REVIEW/MONITOR/IGNORE), company_or_sector, development, why_it_matters, action, confidence (0-100).
-- top_three: exactly three short items an analyst should know today.
-- watch_next: 3-5 concrete signals/data points that would change the current read.
+Your job is to turn them into an analyst work queue. Do not repeat everything.
+Prioritize changes that could alter earnings power, cash generation, balance-sheet risk, competitive position, valuation assumptions or management credibility.
 
-Rules: prioritize materiality and novelty; do not simply repeat headlines; do not provide buy/sell recommendations; distinguish fact from inference; never invent missing numbers.
-Return JSON.
+For each action use exactly one priority: READ NOW, REVIEW, MONITOR, IGNORE.
+Each action should contain: priority, title, evidence, why_it_matters, analyst_question, confidence (0-100).
+Do not issue a buy/sell recommendation. This is research prioritization.
+
+Return strict JSON matching the schema.
 """
 
-
 class SynthesisAgent:
-    def __init__(self, client: GeminiResearchClient):
-        self.client = client
-
-    def run(self, financial: Dict[str, Any], industry: Dict[str, Any]) -> Dict[str, Any]:
-        return self.client.research(PROMPT.format(financial=json.dumps(financial)[:40000], industry=json.dumps(industry)[:40000]), SYNTHESIS_SCHEMA)
+    def __init__(self, client: GeminiResearchClient): self.client = client
+    def run(self, ticker: str, financial: Dict[str,Any], industry: Dict[str,Any]) -> Dict[str,Any]:
+        return self.client.research(PROMPT.format(ticker=ticker, financial=json.dumps(financial)[:50000], industry=json.dumps(industry)[:40000]), SCHEMA)

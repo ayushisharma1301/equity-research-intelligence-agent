@@ -1,64 +1,64 @@
 from __future__ import annotations
-from typing import Dict, Any
+from typing import Any, Dict
 from llm.gemini_client import GeminiResearchClient
-from analysis.financial_math import build_derived_metrics, latest_movements
+from analysis.financial_math import enrich_periods
 
-FINANCIAL_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "company": {"type": "string"},
-        "as_of": {"type": "string"},
-        "currency": {"type": "string"},
-        "periods": {"type": "array", "items": {"type": "object", "additionalProperties": True}},
-        "latest": {"type": "object", "additionalProperties": True},
-        "movements": {"type": "array", "items": {"type": "object", "additionalProperties": True}},
-        "financial_health": {"type": "object", "additionalProperties": True},
-        "anomalies": {"type": "array", "items": {"type": "object", "additionalProperties": True}},
-        "capital_allocation": {"type": "array", "items": {"type": "object", "additionalProperties": True}},
-        "research_actions": {"type": "array", "items": {"type": "string"}},
-        "sources": {"type": "array", "items": {"type": "object", "additionalProperties": True}},
-    },
-    "required": ["company", "as_of", "currency", "periods", "latest", "movements", "financial_health", "anomalies", "capital_allocation", "research_actions", "sources"],
+SCHEMA = {
+    "type":"object","properties":{
+        "company":{"type":"string"},"ticker":{"type":"string"},"as_of":{"type":"string"},"currency":{"type":"string"},
+        "latest_period":{"type":"string"},"market_snapshot":{"type":"object","additionalProperties":True},"latest":{"type":"object","additionalProperties":True},
+        "periods":{"type":"array","items":{"type":"object","additionalProperties":True}},
+        "movements":{"type":"array","items":{"type":"object","additionalProperties":True}},
+        "financial_health":{"type":"object","additionalProperties":True},
+        "capital_allocation":{"type":"array","items":{"type":"object","additionalProperties":True}},
+        "research_actions":{"type":"array","items":{"type":"string"}},
+        "sources":{"type":"array","items":{"type":"object","additionalProperties":True}},
+    },"required":["company","ticker","as_of","currency","latest_period","market_snapshot","latest","periods","movements","financial_health","capital_allocation","research_actions","sources"]
 }
 
 PROMPT = """
-You are an institutional equity-research financial intelligence agent. Research the company below using current public web sources. Prefer primary sources: SEC filings/IR filings, annual reports, quarterly results, company investor presentations. Use reputable financial press only for context.
+You are the FINANCIAL INTELLIGENCE AGENT inside an institutional equity-research workflow.
+Company: {ticker}
+Date: {date}
 
-Company/ticker: {ticker}
+You have web search grounding. Perform fresh research now. This is NOT a generic company summary and NOT a static demo.
 
-TASK
-Build a compact but numerically useful financial dataset and analyst interpretation. Do NOT write a generic company summary. The output must help an analyst avoid manually reading repetitive financial statements.
+SOURCE HIERARCHY FOR INDIAN LISTED COMPANIES
+1. Company investor-relations website, annual report, quarterly results, results presentation, investor presentation and official earnings-call transcript/webcast materials.
+2. NSE India / BSE India corporate announcements and filings, plus SEBI/regulator disclosures where relevant.
+3. Reputable financial press and established research/report publishers for context.
+For NSE/BSE companies, do not default to SEC sources.
+Never invent a number. If a value cannot be verified, return null.
 
-1) Retrieve the latest reported quarter/year and at least 7 comparable historical periods where available (prefer quarterly; otherwise annual). Extract REAL reported numbers, not estimates, for: revenue, operating income/EBIT, net income, EPS if available, cash from operations, capital expenditure, total debt, cash, receivables, inventory, payables, total assets, shareholders' equity. Preserve the reporting currency and units.
-2) Calculate or report movements: QoQ/YoY revenue growth, operating margin, net margin, CFO conversion versus net income, FCF (CFO minus capex), net debt, working-capital changes, and major capital-allocation moves.
-3) Identify unusual changes versus the company's own history. Flag margin breaks, cash-flow divergence, working-capital build, leverage changes, capex spikes, buybacks/dividends, acquisitions, impairments, restructuring, or other material financial decisions.
-4) For each important movement, explain the most evidence-supported driver and whether management's explanation is credible based on the sources.
-5) Give a 0-100 financial health score and a concise analyst read.
-6) Give research actions as questions the analyst should investigate next, not investment advice.
+REQUIRED RESEARCH
+A) FIRST search for a current market snapshot: latest traded/quoted price, daily change %, market cap and 52-week high/low if verifiable. State the timestamp/source.
 
-RULES
-- Every material number must be traceable to a source in the sources array.
-- If a number cannot be verified, use null rather than inventing it.
-- Distinguish reported figures from derived calculations.
-- Prefer the latest fiscal period; clearly state dates.
-- Search the web; do not rely only on model memory.
-- Return JSON matching the schema.
+B) Retrieve the latest reported quarter and at least 7 comparable historical quarters when available (otherwise use the best available annual/semiannual series). Use REAL REPORTED figures, preserving units and currency.
+For each period try to capture: revenue, operating income/EBIT, net income, EPS, CFO, capex, total debt, cash, receivables, inventory, payables, total assets, equity.
+
+C) Calculate/derive locally where possible: revenue growth, operating margin, net margin, CFO conversion, FCF = CFO - capex, net debt, and major working-capital movements. Do not present derived figures as reported figures.
+
+D) Detect meaningful movement versus the company's own history. Specifically look for: margin breaks, cash-flow divergence, working-capital build, leverage change, capex spike, acquisition/asset sale, impairment, restructuring, buyback/dividend change, dilution, unusual tax effects, one-offs and accounting changes.
+
+E) Search for the latest earnings-call transcript, earnings-call summary, management commentary and investor Q&A. Extract evidence-supported explanations for major movements and assess whether management's explanation is consistent with the financial data and other sources. If a full transcript is unavailable, use the best verifiable call summary and label it clearly.
+
+F) Search recent company reports, annual/quarterly reports and investor materials for strategy, segment performance, capacity, order book, guidance and capital-allocation decisions that affect valuation.
+
+G) Give a financial-health score 0-100 with the drivers behind it. This is an analytical score, not an investment rating.
+
+H) Give 3-6 research actions phrased as questions the analyst should investigate next.
+
+SOURCE REQUIREMENT
+Every material number, event and management claim must have a source. Include source title, URL, publisher, publication date/as-of date, and source type. Prefer direct primary-source URLs. Use the sources array for traceability.
+
+Return strict JSON matching the schema.
 """
 
-
 class FinancialAgent:
-    def __init__(self, client: GeminiResearchClient):
-        self.client = client
-
-    def run(self, ticker: str) -> Dict[str, Any]:
-        data = self.client.research(PROMPT.format(ticker=ticker), FINANCIAL_SCHEMA)
-        periods = data.get("periods") or []
-        periods = build_derived_metrics(periods)
-        data["periods"] = periods
-        if periods:
-            data["latest"] = {**periods[-1], **(data.get("latest") or {})}
-        # Deterministic local movement calculations supplement Gemini's narrative.
-        local_moves = latest_movements(periods)
-        if local_moves:
-            data["local_movements"] = local_moves
+    def __init__(self, client: GeminiResearchClient): self.client = client
+    def run(self, ticker: str, date: str) -> Dict[str, Any]:
+        data = self.client.research(PROMPT.format(ticker=ticker, date=date), SCHEMA)
+        data["periods"] = enrich_periods(data.get("periods") or [])
+        if data["periods"]:
+            data["latest"] = {**data["periods"][-1], **(data.get("latest") or {})}
         return data
