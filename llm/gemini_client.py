@@ -58,7 +58,7 @@ class GeminiResearchClient:
             if "429" in message or "RESOURCE_EXHAUSTED" in message:
                 raise RuntimeError(
                     "Gemini quota/rate limit reached. The app now uses Tavily for live search; "
-                    "check the Gemini project quota or switch GEMINI_MODEL to gemini-2.5-flash-lite."
+                    "check the Gemini project quota or switch GEMINI_MODEL to gemini-3.5-flash-lite."
                 ) from exc
             raise
 
