@@ -1,28 +1,41 @@
 # Setup Guide
 
-## 1. Create a new GitHub repository
-Create a new empty repository named:
-`equity-research-intelligence-agent`
+## 1. Create API keys
 
-Keep the existing `filing-signal-agent` repository untouched.
+Create one Gemini API key and one Tavily API key.
 
-Do not initialize the new repository with a README, .gitignore or license because those files are already included here.
+## 2. Streamlit Secrets
 
-## 2. Upload the project
-Extract this ZIP and upload **the contents** into the root of the new GitHub repository. `app.py` and `requirements.txt` must be at repository root.
+In Streamlit Community Cloud, open the app settings and add:
 
-## 3. Streamlit Community Cloud
-Create a new Streamlit app from the new GitHub repository.
-- Branch: `main`
-- Main file: `app.py`
-
-## 4. Streamlit Secrets
-Add:
 ```toml
-GEMINI_API_KEY = "YOUR_NEW_GEMINI_KEY"
-GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_API_KEY = "..."
+TAVILY_API_KEY = "..."
+GEMINI_MODEL = "gemini-2.5-flash-lite"
 ```
-Never commit the API key to GitHub.
 
-## 5. Use
-Open the app, choose NSE or BSE, type any company, and click **RUN LIVE RESEARCH**.
+## 3. GitHub root
+
+The repository root must contain:
+
+```text
+app.py
+config.py
+requirements.txt
+agents/
+analysis/
+llm/
+.streamlit/
+```
+
+Do not put these files under an extra `eri_rebuild/` folder.
+
+## 4. Test
+
+Try different companies to verify dynamic behavior, for example:
+- NSE: Tata Motors
+- NSE: HDFCBANK
+- BSE: Infosys
+- NSE: UltraTech Cement
+
+These are examples only; the code does not store them as a universe.

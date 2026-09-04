@@ -1,26 +1,47 @@
-# Equity Research Intelligence Agent — Dynamic NSE/BSE Edition
+# Equity Research Intelligence Agent
 
-A Streamlit equity-research console powered by Gemini API + Google Search grounding. There is **no fixed company universe and no static financial dataset**.
+A dynamic, live-web equity research workflow for **any NSE or BSE listed company**.
 
-## Core workflow
-1. Select **NSE** or **BSE**.
-2. Type any listed company name, symbol, or scrip identifier.
-3. Gemini resolves the exact listed security.
-4. Financial Intelligence Agent researches current statements, reports, earnings-call/management commentary, historical financial movement and capital allocation.
-5. Industry Intelligence Agent researches competitors, industry reports, macro signals and recent news.
-6. Synthesis Agent converts the evidence into a prioritized analyst work queue.
-7. Dashboard shows the numbers, movements, evidence, recommendations and source room.
+## What makes it dynamic
+- No hard-coded company universe.
+- User selects NSE or BSE and types any company name, symbol or BSE scrip.
+- Tavily retrieves fresh public web evidence at run time.
+- Gemini analyzes that evidence through separate Financial, Industry and Synthesis agents.
+- Switching companies triggers a new research cycle.
 
-## External interfaces
-Only Gemini API / Google Search grounding is used for external research. Streamlit is the UI/runtime and GitHub is the repository/deployment source.
+## Architecture
 
-## No static company universe
-The sidebar intentionally has no watchlist. A user can research a different NSE/BSE company on every run.
+```text
+User -> NSE/BSE Company Resolver -> Financial Agent
+                                  -> Industry Agent
+                                  -> Synthesis Agent
+                                  -> Streamlit Dashboard
+
+Tavily = live web retrieval
+Gemini = reasoning / analysis
+```
+
+## Required secrets
+
+```toml
+GEMINI_API_KEY = "your-gemini-key"
+TAVILY_API_KEY = "your-tavily-key"
+GEMINI_MODEL = "gemini-2.5-flash-lite"
+```
+
+Do not commit API keys to GitHub.
 
 ## Run locally
+
 ```bash
 pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Set `GEMINI_API_KEY` in Streamlit Secrets or the environment.
+## Deployment
+
+Deploy `app.py` from the repository root on Streamlit Community Cloud and add the three secrets in the app's Secrets settings.
+
+## Live research behavior
+
+The app uses Tavily search for exchange resolution, financial research, competitor/industry research, recent news and macro context. Gemini receives the retrieved evidence and produces structured JSON for the dashboard. Gemini Google Search grounding is intentionally disabled so the app does not depend on that separate Gemini grounding quota.
