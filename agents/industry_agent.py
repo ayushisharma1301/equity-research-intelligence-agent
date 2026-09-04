@@ -1,42 +1,56 @@
 from __future__ import annotations
 from typing import Any, Dict
 from llm.gemini_client import GeminiResearchClient
+from llm.tavily_client import TavilyResearchClient, format_results
 
-SCHEMA = {
-    "type":"object","properties":{
-        "company":{"type":"string"},"ticker":{"type":"string"},"industry":{"type":"string"},"as_of":{"type":"string"},
-        "industry_snapshot":{"type":"string"},"competitors":{"type":"array","items":{"type":"object","additionalProperties":True}},
-        "macro_signals":{"type":"array","items":{"type":"object","additionalProperties":True}},
-        "industry_reports":{"type":"array","items":{"type":"object","additionalProperties":True}},
-        "news":{"type":"array","items":{"type":"object","additionalProperties":True}},
-        "implications":{"type":"array","items":{"type":"object","additionalProperties":True}},
-        "research_actions":{"type":"array","items":{"type":"string"}},"sources":{"type":"array","items":{"type":"object","additionalProperties":True}}
-    },"required":["company","ticker","industry","as_of","industry_snapshot","competitors","macro_signals","industry_reports","news","implications","research_actions","sources"]
-}
+SCHEMA = {"type":"object"}
 
 PROMPT = """
 You are the INDUSTRY INTELLIGENCE AGENT for an institutional equity analyst.
-Target company/ticker: {ticker}
+Target company: {company} ({exchange}:{symbol})
 Date: {date}
 
-Perform a fresh, company-specific industry scan using web search grounding. Do not use a static dataset.
+The following results were retrieved LIVE from the web immediately before this analysis. Do not use a static company universe. Identify the actual industry and competitors from the evidence.
 
-1. Identify the company's actual primary industry in India and the 3-6 competitors that most directly matter to its economics. Use NSE/BSE classifications and company disclosures where available.
-2. Search the last 72 hours for material news affecting the company or its industry. Also search the last 30 days for important developments that remain economically relevant.
-3. Search competitor disclosures, NSE/BSE announcements, earnings releases, investor presentations, annual reports, capacity/capex announcements, pricing commentary, product moves, M&A, financing, geographic expansion, layoffs/hiring, technology and regulatory developments.
-4. Search reputable industry research/report sources and summarize the most decision-useful recent findings.
-5. Track macro signals relevant to the economics of the company: rates, inflation, commodities, FX, demand, regulation, supply chain, etc. Only include signals with a clear transmission mechanism.
-6. Deduplicate stories. A repeated headline is one development, not five.
-7. For each material development explain: WHAT HAPPENED -> AFFECTED COMPANIES -> ECONOMIC MECHANISM -> WHAT AN EQUITY ANALYST SHOULD CHECK NEXT.
-8. Rank implications by materiality and novelty.
+LIVE SEARCH RESULTS:
+{evidence}
 
-SOURCE RULES
-Use primary company/regulator sources where possible, then high-quality industry research and reputable news. Include URL, title, publisher, publication date and source type for every material item. Do not invent current prices, dates or statistics.
+TASKS
+1) Identify the primary industry and 3-6 economically relevant competitors.
+2) Cover current news from the last 7 days and material developments from the last 30 days. Separate company-specific news from sector-wide news.
+3) Track competitor earnings, capacity/capex, pricing, product moves, M&A, financing, geography, technology, regulation and other competitive changes.
+4) Track macro signals only when there is a clear transmission mechanism to revenue, margins, capex, financing or valuation.
+5) Identify useful industry research/report findings.
+6) Deduplicate repeated headlines.
+7) For every material development explain WHAT HAPPENED -> AFFECTED COMPANIES -> ECONOMIC MECHANISM -> WHAT THE ANALYST SHOULD CHECK NEXT.
+8) Rank implications by materiality and novelty.
 
-Return strict JSON matching the schema. No buy/sell recommendation.
+OUTPUT ONLY JSON with keys:
+company, ticker, exchange, industry, as_of, industry_snapshot, competitors, macro_signals, industry_reports, news, implications, research_actions, sources
+
+Do not issue buy/sell recommendations. Never invent current facts or URLs.
 """
 
+
 class IndustryAgent:
-    def __init__(self, client: GeminiResearchClient): self.client = client
-    def run(self, ticker: str, date: str) -> Dict[str, Any]:
-        return self.client.research(PROMPT.format(ticker=ticker, date=date), SCHEMA)
+    def __init__(self, gemini: GeminiResearchClient, search: TavilyResearchClient):
+        self.gemini = gemini
+        self.search = search
+
+    def run(self, company: str, exchange: str, symbol: str, date: str) -> Dict[str, Any]:
+        q = f"{company} {symbol} {exchange}"
+        searches = [
+            {"query": f"{q} industry competitors market share sector India", "max_results": 7},
+            {"query": f"{q} competitors latest earnings capacity capex pricing expansion India", "max_results": 8},
+            {"query": f"{q} sector industry latest news India regulation demand commodity rates FX", "max_results": 8, "topic": "news", "time_range": "week"},
+            {"query": f"{q} industry report research outlook India latest", "max_results": 6},
+        ]
+        results = self.search.search_many(searches)
+        prompt = PROMPT.format(company=company, exchange=exchange, symbol=symbol, date=date, evidence=format_results(results, 32))
+        data = self.gemini.research(prompt, SCHEMA)
+        data.setdefault("sources", [])
+        for r in results:
+            url = r.get("url")
+            if url and not any(s.get("url") == url for s in data["sources"] if isinstance(s, dict)):
+                data["sources"].append({"title": r.get("title","Search result"), "url": url, "publisher": url.split('/')[2], "source_type":"Tavily live search"})
+        return data
