@@ -4,12 +4,7 @@ from typing import Any
 
 
 class TavilyResearchClient:
-    """Small Tavily REST client for live web retrieval.
-
-    Tavily is the retrieval layer; Gemini is the reasoning layer. This keeps
-    Google Search grounding out of Gemini so the app is not dependent on the
-    Gemini Search-grounding quota.
-    """
+    """Tavily retrieval layer with optional deeper page extraction."""
 
     BASE_URL = "https://api.tavily.com/search"
 
@@ -26,14 +21,16 @@ class TavilyResearchClient:
         topic: str = "general",
         time_range: str | None = None,
         include_domains: list[str] | None = None,
+        search_depth: str = "basic",
+        include_raw_content: bool = False,
     ) -> list[dict[str, Any]]:
         payload: dict[str, Any] = {
             "query": query,
-            "search_depth": "basic",
+            "search_depth": search_depth,
             "max_results": max(1, min(int(max_results), 10)),
             "topic": topic,
             "include_answer": False,
-            "include_raw_content": False,
+            "include_raw_content": include_raw_content,
             "include_images": False,
         }
         if time_range:
@@ -49,7 +46,7 @@ class TavilyResearchClient:
                     "Content-Type": "application/json",
                 },
                 json=payload,
-                timeout=35,
+                timeout=45,
             )
         except requests.RequestException as exc:
             raise RuntimeError(f"Tavily connection failed: {exc}") from exc
@@ -65,7 +62,6 @@ class TavilyResearchClient:
         return data.get("results") or []
 
     def search_many(self, searches: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Run a small, deliberate set of searches and deduplicate URLs."""
         combined: list[dict[str, Any]] = []
         seen: set[str] = set()
         for spec in searches:
@@ -81,12 +77,19 @@ class TavilyResearchClient:
 
 
 def format_results(results: list[dict[str, Any]], limit: int = 30) -> str:
-    """Compact, citation-friendly text for Gemini prompts."""
+    """Give Gemini both search snippets and, when available, extracted page text."""
     lines: list[str] = []
     for i, r in enumerate(results[:limit], 1):
         title = r.get("title") or "Untitled"
         url = r.get("url") or ""
         content = (r.get("content") or "").replace("\n", " ").strip()
+        raw = (r.get("raw_content") or "").replace("\n", " ").strip()
+        # Keep prompts bounded while preserving much more evidence than a basic snippet.
+        if raw:
+            raw = raw[:9000]
         score = r.get("score")
-        lines.append(f"[{i}] {title}\nURL: {url}\nScore: {score}\nSnippet: {content}")
+        lines.append(
+            f"[{i}] {title}\nURL: {url}\nScore: {score}\nSnippet: {content}\n"
+            + (f"Page text: {raw}" if raw else "")
+        )
     return "\n\n".join(lines)
