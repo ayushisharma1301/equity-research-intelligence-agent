@@ -96,3 +96,4 @@ def format_results(results: list[dict[str, Any]], limit: int = 30) -> str:
             block += f"\nPage extract: {raw}"
         lines.append(block)
     return "\n\n".join(lines)
+ 
