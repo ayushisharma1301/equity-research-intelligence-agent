@@ -276,21 +276,26 @@ with ci:
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('<div class="panel"><div class="panel-head">Competitor moves</div>', unsafe_allow_html=True)
     competitors = dict_list(industry.get("competitors"))
-    verified_competitors = [
-        x for x in competitors
-        if str(x.get("development", x.get("move", ""))).strip()
-        and str(x.get("development", x.get("move", ""))).strip().lower() not in {"no verified development.", "no verified development", "—", "-"}
-    ]
-    if not verified_competitors:
-        st.info("No evidence-backed competitor move was retrieved in this run.")
-    for x in verified_competitors[:8]:
-        company_name = x.get("company", x.get("name", "Competitor"))
-        development = x.get("development", x.get("move", ""))
-        implication = x.get("why_it_matters", x.get("implication", ""))
-        st.markdown(f'**{esc(company_name)}** — {esc(development)}')
-        if implication: st.caption(esc(implication))
-        if x.get("source_url"):
-            st.markdown(f'[Source]({esc(x.get("source_url"))})')
+    if not competitors:
+        st.info("No listed competitors could be identified from the live evidence in this run.")
+    else:
+        import pandas as pd
+        peer_rows = []
+        for x in competitors[:8]:
+            peer_rows.append({
+                "Competitor": x.get("company", x.get("name", "—")),
+                "Segment": x.get("segment", x.get("business_segment", "—")),
+                "Share price": x.get("price", "—"),
+                "Day %": x.get("daily_change_pct", "—"),
+                "Market cap": x.get("market_cap", "—"),
+                "Current development": x.get("development", "No material verified development in the current window."),
+            })
+        st.dataframe(pd.DataFrame(peer_rows), use_container_width=True, hide_index=True)
+        for x in competitors[:8]:
+            if x.get("source_url"):
+                st.caption(f'{x.get("company", "Competitor")} market-data source: {x.get("source_url")}')
+            if x.get("why_it_matters"):
+                st.caption(esc(x.get("why_it_matters")))
     st.markdown('</div>', unsafe_allow_html=True)
 with cj:
     st.markdown('<div class="panel"><div class="panel-head">Recent material news</div>', unsafe_allow_html=True)
