@@ -52,7 +52,7 @@ class FinancialAgent:
             {"query": f"{q} latest quarterly results revenue EBITDA PAT CFO capex investor presentation 2026", "max_results": 8, "include_domains": ["ril.com"] if "reliance" in company.lower() else None},
             {"query": f"{q} historical quarterly results FY 2026 FY 2025 FY 2024 financial statements revenue EBITDA PAT cash flow", "max_results": 8},
             {"query": f"{q} latest earnings call management commentary guidance capex dividend buyback investor presentation transcript", "max_results": 8, "include_domains": ["ril.com"] if "reliance" in company.lower() else None},
-            {"query": f"{q} NSE share price today 8 September 2026 live current price day change market cap 52 week high low", "max_results": 8, "topic": "news", "time_range": "day"},
+            {"query": f"{q} NSE BSE share price today live current price day change market cap 52 week high low", "max_results": 8, "topic": "news", "time_range": "day"},
             {"query": f"{q} annual report financial highlights consolidated revenue EBITDA profit cash flow debt cash receivables inventory", "max_results": 7},
         ]
         searches = [{k: v for k, v in spec.items() if v is not None} for spec in searches]
