@@ -51,6 +51,30 @@ class IndustryAgent:
         results = self.search.search_many(searches)
         prompt = PROMPT.format(company=company, exchange=exchange, symbol=symbol, date=date, evidence=format_results(results, 32))
         data = self.gemini.research(prompt, SCHEMA)
+
+        # Normalize AI output before it reaches the dashboard. Gemini can occasionally
+        # return placeholders or strings inside fields that the UI expects to be lists
+        # of dictionaries. Keep only evidence-bearing records.
+        def clean_dict_list(value):
+            if not isinstance(value, list):
+                return []
+            return [x for x in value if isinstance(x, dict)]
+
+        competitors = clean_dict_list(data.get("competitors"))
+        data["competitors"] = [
+            x for x in competitors
+            if str(x.get("development", x.get("move", ""))).strip()
+            and str(x.get("development", x.get("move", ""))).strip().lower() not in {"no verified development", "no verified development.", "—", "-"}
+        ]
+        data["macro_signals"] = [
+            x for x in clean_dict_list(data.get("macro_signals"))
+            if str(x.get("implication", x.get("why_it_matters", ""))).strip()
+        ]
+        data["industry_reports"] = [
+            x for x in clean_dict_list(data.get("industry_reports"))
+            if str(x.get("finding", x.get("summary", ""))).strip()
+        ]
+        data["news"] = clean_dict_list(data.get("news"))
         data.setdefault("sources", [])
         for r in results:
             url = r.get("url")
