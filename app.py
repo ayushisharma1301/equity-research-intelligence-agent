@@ -149,10 +149,10 @@ with st.sidebar:
     st.code('GEMINI_API_KEY = "..."\nTAVILY_API_KEY = "..."\nGEMINI_MODEL = "gemini-3.5-flash-lite"', language="toml")
     st.caption("Live web retrieval: Tavily. AI analysis: Gemini. No company universe is stored in the app.")
 
-identity = as_dict(st.session_state.get("identity"))
-financial = as_dict(st.session_state.get("financial"))
-industry = as_dict(st.session_state.get("industry"))
-synthesis = as_dict(st.session_state.get("synthesis"))
+identity = st.session_state.get("identity")
+financial = st.session_state.get("financial")
+industry = st.session_state.get("industry")
+synthesis = st.session_state.get("synthesis")
 
 st.markdown('<div class="brand"><div class="mark">E</div><div><div class="eyebrow">EQUITY RESEARCH INTELLIGENCE AGENT</div><h1>Research what matters next.</h1><div class="tagline">Choose any NSE/BSE security. The system resolves it, retrieves current public information, runs financial and industry agents, and turns the evidence into an analyst work queue.</div></div></div>', unsafe_allow_html=True)
 
@@ -197,8 +197,8 @@ if not actions:
 st.markdown('<div class="section"><h2>COMPANY INTELLIGENCE</h2><p>Fresh financial statements, historical movement, cash-flow quality, balance-sheet risk and capital allocation.</p></div>', unsafe_allow_html=True)
 vals = [
     ("Revenue", latest.get("revenue"), latest.get("revenue_growth")),
-    ("Operating margin", latest.get("operating_margin"), latest.get("operating_margin_yoy") or latest.get("operating_margin_change")),
-    ("Net income", latest.get("net_income"), latest.get("net_income_yoy") or latest.get("net_income_growth")),
+    ("Operating / EBITDA margin", latest.get("operating_margin") or latest.get("ebitda_margin"), latest.get("operating_margin_yoy") or latest.get("operating_margin_change") or latest.get("ebitda_margin_yoy")),
+    ("Net income / PAT", latest.get("net_income") or latest.get("pat"), latest.get("net_income_yoy") or latest.get("net_income_growth") or latest.get("pat_growth")),
     ("CFO", latest.get("cfo"), latest.get("cfo_yoy") or latest.get("cfo_growth")),
     ("FCF", latest.get("fcf"), latest.get("fcf_yoy") or latest.get("fcf_growth")),
 ]
@@ -262,46 +262,22 @@ with ci:
     st.write(industry.get("industry_snapshot", "—"))
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('<div class="panel"><div class="panel-head">Competitor moves</div>', unsafe_allow_html=True)
-    competitors = as_list(industry.get("competitors"))
-    for x in competitors[:8]:
-        if isinstance(x, dict):
-            st.markdown(f'**{esc(x.get("company", x.get("name","Competitor")))}** — {esc(x.get("development", x.get("move","—")))}')
-        else:
-            st.markdown(f'• {esc(x)}')
-    if not competitors:
-        st.caption("No competitor developments returned.")
+    for x in (industry.get("competitors") or [])[:8]:
+        st.markdown(f'**{esc(x.get("company", x.get("name","Competitor")))}** — {esc(x.get("development", x.get("move","—")))}')
     st.markdown('</div>', unsafe_allow_html=True)
 with cj:
     st.markdown('<div class="panel"><div class="panel-head">Recent material news</div>', unsafe_allow_html=True)
-    news_items = as_list(industry.get("news"))
-    for x in news_items[:10]:
-        if isinstance(x, dict):
-            st.markdown(f'**{esc(x.get("title", x.get("headline","News")))}**  \n{esc(x.get("why_it_matters", x.get("implication", x.get("summary","—"))))}')
-        else:
-            st.markdown(f'• {esc(x)}')
-    if not news_items:
-        st.caption("No recent material news returned.")
+    for x in (industry.get("news") or [])[:10]:
+        st.markdown(f'**{esc(x.get("title", x.get("headline","News")))}**  \n{esc(x.get("why_it_matters", x.get("implication","—")))}')
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('<div class="panel"><div class="panel-head">Macro / industry signals</div>', unsafe_allow_html=True)
-    macro_signals = as_list(industry.get("macro_signals"))
-    for x in macro_signals[:8]:
-        if isinstance(x, dict):
-            st.markdown(f'**{esc(x.get("signal", x.get("name","Signal")))}** — {esc(x.get("implication", x.get("why_it_matters","—")))}')
-        else:
-            st.markdown(f'• {esc(x)}')
-    if not macro_signals:
-        st.caption("No macro/industry signals returned.")
+    for x in (industry.get("macro_signals") or [])[:8]:
+        st.markdown(f'**{esc(x.get("signal", x.get("name","Signal")))}** — {esc(x.get("implication", x.get("why_it_matters","—")))}')
     st.markdown('</div>', unsafe_allow_html=True)
 
 with st.expander("Industry reports & research"):
-    reports = as_list(industry.get("industry_reports"))
-    for x in reports[:12]:
-        if isinstance(x, dict):
-            st.markdown(f'**{esc(x.get("title","Report"))}** — {esc(x.get("finding", x.get("summary","—")))}')
-        else:
-            st.markdown(f'• {esc(x)}')
-    if not reports:
-        st.caption("No industry reports returned.")
+    for x in (industry.get("industry_reports") or [])[:12]:
+        st.markdown(f'**{esc(x.get("title","Report"))}** — {esc(x.get("finding", x.get("summary","—")))}')
 
 # Final brief + sources
 st.markdown('<div class="section"><h2>DAILY EQUITY RESEARCH BRIEF</h2><p>The synthesis agent converts the live evidence into the few things an analyst should investigate next.</p></div>', unsafe_allow_html=True)
