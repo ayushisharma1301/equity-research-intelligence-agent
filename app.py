@@ -197,8 +197,8 @@ if not actions:
 st.markdown('<div class="section"><h2>COMPANY INTELLIGENCE</h2><p>Fresh financial statements, historical movement, cash-flow quality, balance-sheet risk and capital allocation.</p></div>', unsafe_allow_html=True)
 vals = [
     ("Revenue", latest.get("revenue"), latest.get("revenue_growth")),
-    ("Operating / EBITDA margin", latest.get("operating_margin") or latest.get("ebitda_margin"), latest.get("operating_margin_yoy") or latest.get("operating_margin_change") or latest.get("ebitda_margin_yoy")),
-    ("Net income / PAT", latest.get("net_income") or latest.get("pat"), latest.get("net_income_yoy") or latest.get("net_income_growth") or latest.get("pat_growth")),
+    ("Operating margin", latest.get("operating_margin"), latest.get("operating_margin_yoy") or latest.get("operating_margin_change")),
+    ("Net income", latest.get("net_income"), latest.get("net_income_yoy") or latest.get("net_income_growth")),
     ("CFO", latest.get("cfo"), latest.get("cfo_yoy") or latest.get("cfo_growth")),
     ("FCF", latest.get("fcf"), latest.get("fcf_yoy") or latest.get("fcf_growth")),
 ]
@@ -237,7 +237,10 @@ with c2:
     st.markdown('</div>', unsafe_allow_html=True)
 
 with st.expander("Financial movement interpretation"):
-    for m in as_list(financial.get("movements"))[:12]:
+    movements = as_list(financial.get("movements"))
+    if not movements:
+        st.info("No structured financial movement was returned from the live evidence.")
+    for m in movements[:12]:
         if isinstance(m, dict):
             st.markdown(f'**{esc(m.get("metric", m.get("title","Movement")))}** · {esc(m.get("movement",""))}  \n{esc(m.get("why_it_matters", m.get("explanation","")))}')
         else:
@@ -245,14 +248,21 @@ with st.expander("Financial movement interpretation"):
 
 with st.expander("Management commentary"):
     mc = financial.get("management_commentary") or []
-    if isinstance(mc, list):
-        for x in mc[:10]:
-            if isinstance(x, dict):
-                st.markdown(f'**{esc(x.get("topic","Commentary"))}** — {esc(x.get("comment", x.get("summary","—")))}')
-            else:
-                st.markdown(f"• {esc(x)}")
-    else:
-        st.write(mc)
+    if isinstance(mc, dict):
+        mc = [mc]
+    if not isinstance(mc, list):
+        mc = [mc]
+    if not mc:
+        st.info("No management commentary was returned. The agent will only display verified evidence from live sources.")
+    for x in mc[:10]:
+        if isinstance(x, dict):
+            topic = x.get("topic", "Management commentary")
+            comment = x.get("comment", x.get("summary", x.get("analysis_and_gaps", "No verified commentary.")))
+            st.markdown(f'**{esc(topic)}** — {esc(comment)}')
+            if x.get("source_url"):
+                st.markdown(f'[Source]({x.get("source_url")})')
+        else:
+            st.markdown(f"• {esc(x)}")
 
 # Industry intelligence
 st.markdown('<div class="section"><h2>INDUSTRY INTELLIGENCE</h2><p>Competitor moves, current sector news, industry reports and macro transmission channels — filtered for economic relevance.</p></div>', unsafe_allow_html=True)
@@ -262,8 +272,16 @@ with ci:
     st.write(industry.get("industry_snapshot", "—"))
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('<div class="panel"><div class="panel-head">Competitor moves</div>', unsafe_allow_html=True)
-    for x in (industry.get("competitors") or [])[:8]:
-        st.markdown(f'**{esc(x.get("company", x.get("name","Competitor")))}** — {esc(x.get("development", x.get("move","—")))}')
+    competitors = as_list(industry.get("competitors"))
+    if not competitors:
+        st.info("No evidence-backed competitor move was retrieved in this run.")
+    for x in competitors[:8]:
+        if isinstance(x, dict):
+            company_name = x.get("company", x.get("name", "Competitor"))
+            development = x.get("development", x.get("move", "No verified development."))
+            implication = x.get("why_it_matters", x.get("implication", ""))
+            st.markdown(f'**{esc(company_name)}** — {esc(development)}')
+            if implication: st.caption(implication)
     st.markdown('</div>', unsafe_allow_html=True)
 with cj:
     st.markdown('<div class="panel"><div class="panel-head">Recent material news</div>', unsafe_allow_html=True)
@@ -271,13 +289,21 @@ with cj:
         st.markdown(f'**{esc(x.get("title", x.get("headline","News")))}**  \n{esc(x.get("why_it_matters", x.get("implication","—")))}')
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('<div class="panel"><div class="panel-head">Macro / industry signals</div>', unsafe_allow_html=True)
-    for x in (industry.get("macro_signals") or [])[:8]:
-        st.markdown(f'**{esc(x.get("signal", x.get("name","Signal")))}** — {esc(x.get("implication", x.get("why_it_matters","—")))}')
+    macro_items = as_list(industry.get("macro_signals"))
+    if not macro_items:
+        st.info("No evidence-backed macro signal was retrieved in this run.")
+    for x in macro_items[:8]:
+        if isinstance(x, dict):
+            st.markdown(f'**{esc(x.get("signal", x.get("name","Signal")))}** — {esc(x.get("implication", x.get("why_it_matters","No verified implication.")))}')
     st.markdown('</div>', unsafe_allow_html=True)
 
 with st.expander("Industry reports & research"):
-    for x in (industry.get("industry_reports") or [])[:12]:
-        st.markdown(f'**{esc(x.get("title","Report"))}** — {esc(x.get("finding", x.get("summary","—")))}')
+    reports = as_list(industry.get("industry_reports"))
+    if not reports:
+        st.info("No relevant industry report was retrieved in this run.")
+    for x in reports[:12]:
+        if isinstance(x, dict):
+            st.markdown(f'**{esc(x.get("title","Report"))}** — {esc(x.get("finding", x.get("summary","No verified finding.")))}')
 
 # Final brief + sources
 st.markdown('<div class="section"><h2>DAILY EQUITY RESEARCH BRIEF</h2><p>The synthesis agent converts the live evidence into the few things an analyst should investigate next.</p></div>', unsafe_allow_html=True)
